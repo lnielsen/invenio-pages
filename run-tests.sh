@@ -22,11 +22,10 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-"""Static pages module for Invenio."""
 
-from __future__ import absolute_import, print_function
-
-from .ext import InvenioPages
-from .version import __version__
-
-__all__ = ('__version__', 'InvenioPages')
+pep257 invenio_pages && \
+isort -rc -c -df **/*.py && \
+check-manifest --ignore ".travis-*" && \
+sphinx-build -qnNW docs docs/_build/html && \
+python setup.py test && \
+sphinx-build -qnNW -b doctest docs docs/_build/doctest

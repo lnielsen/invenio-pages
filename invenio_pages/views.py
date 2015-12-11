@@ -1,31 +1,36 @@
 # -*- coding: utf-8 -*-
-# This file is part of Invenio.
-# Copyright (C) 2014, 2015 CERN.
 #
-# Invenio is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as
+# This file is part of Invenio.
+# Copyright (C) 2015 CERN.
+#
+# Invenio is free software; you can redistribute it
+# and/or modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 2 of the
 # License, or (at your option) any later version.
 #
-# Invenio is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
+# Invenio is distributed in the hope that it will be
+# useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Invenio; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+# along with Invenio; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307, USA.
+#
+# In applying this license, CERN does not
+# waive the privileges and immunities granted to it by virtue of its status
+# as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 """Views for Pages module."""
 
-from __future__ import unicode_literals
+from __future__ import absolute_import, print_function
 
 import six
 
-from flask import Blueprint, current_app, render_template, request
+from flask import Blueprint, current_app, render_template, request, abort
 from flask.ctx import after_this_request
 
-from invenio_base.globals import cfg
 from invenio_base.signals import before_handle_user_exception
 from invenio_ext.sqlalchemy import db
 from invenio_pages.models import Page
@@ -35,8 +40,12 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from werkzeug.exceptions import NotFound
 
-blueprint = Blueprint('pages', __name__, url_prefix='/',
-                      template_folder='templates')
+blueprint = Blueprint(
+    'invenio_pages',
+    __name__,
+    url_prefix='/',
+    template_folder='templates'
+)
 
 
 @blueprint.before_app_first_request
@@ -46,12 +55,7 @@ def register():
         _add_url_rule([page.url for page in Page.query.all()])
     except Exception:
         current_app.logger.warn('Pages were not loaded.')
-
-
-@blueprint.errorhandler(NoResultFound)
-def no_result_found(_dummy):
-    """Render 404 page when no page has been found."""
-    return render_template('404.html'), 404
+        raise
 
 
 @blueprint.errorhandler(404)
@@ -66,8 +70,7 @@ def errorhandler(exception):
 
 
 def view():
-    """
-    Public interface to the page view.
+    """Public interface to the page view.
 
     Models: `pages.pages`
     Templates: Uses the template defined by the ``template_name`` field,
@@ -82,18 +85,14 @@ def view():
 # @cache.memoize for guests?
 def render_page(path):
     """Internal interface to the page view."""
-    page = Page.query.filter(db.or_(Page.url == request.path,
-                                    Page.url == request.path + "/")).first()
-    return render_template([page.template_name, cfg['PAGES_DEFAULT_TEMPLATE']],
-                           page=page)
+    try:
+        page = Page.get_by_url(request.path)
+    except NoResultFound:
+        abort(404)
 
-
-def before_url_insert(mapper, connection, target):
-    """Massage target url."""
-    if not target.url.startswith("/"):
-        target.url = "/" + target.url
-    if not target.url.endswith("/") and cfg["PAGES_APPEND_SLASH"]:
-        target.url = target.url + "/"
+    return render_template(
+        [page.template_name, current_app.config['PAGES_DEFAULT_TEMPLATE']],
+        page=page)
 
 
 def page_orm_handler(mapper, connection, target):
@@ -102,7 +101,6 @@ def page_orm_handler(mapper, connection, target):
 
 
 # event.listen(Page, 'after_delete', rebuild_cache)
-event.listen(Page, 'before_insert', before_url_insert)
 event.listen(Page, 'after_insert', page_orm_handler)
 event.listen(Page, 'after_update', page_orm_handler)
 
@@ -130,7 +128,7 @@ before_handle_user_exception.connect(handle_not_found)
 
 
 def _add_url_rule(url_or_urls):
-    """Register url rule to application url map."""
+    """Register URL rule to application URL map."""
     old = current_app._got_first_request
     # This is bit of cheating to overcome @flask.app.setupmethod decorator.
     current_app._got_first_request = False

@@ -26,7 +26,23 @@
 
 from __future__ import absolute_import, print_function
 
-from .ext import InvenioPages
-from .version import __version__
 
-__all__ = ('__version__', 'InvenioPages')
+class InvenioPages(object):
+    """Invenio-Pages extension."""
+
+    def __init__(self, app=None):
+        """Extension initialization."""
+        if app:
+            self.init_app(app)
+
+    def init_app(self, app):
+        """Flask application initialization."""
+        self.init_config(app)
+        app.extensions['invenio-pages'] = self
+
+    def init_config(self, app):
+        """Initialize configuration."""
+        app.config.setdefault(
+            "PAGES_BASE_TEMPLATE",
+            app.config.get("BASE_TEMPLATE",
+                           "invenio_pages/base.html"))
